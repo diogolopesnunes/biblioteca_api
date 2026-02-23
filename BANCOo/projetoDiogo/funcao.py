@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_bcrypt import generate_password_hash, check_password_hash
+import smtplib
+from email.mime.text import MIMEText
 
 
 def validar_senha(senha):
@@ -19,3 +21,19 @@ def criptografar(senha):
 
 def checar_senha(senha, senha_criptografada):
     return check_password_hash(senha_criptografada, senha)
+
+
+def enviando_email(destinatario, assunto, mensagem):
+    user = "gran34sudaruska@gmail.com"
+    senha = "mqrj qkco dqbm hqrl"
+
+    msg = MIMEText(mensagem)
+    msg['Subject'] = assunto
+    msg['From'] = user
+    msg['To'] = destinatario
+
+    server = smtplib.SMTP('smtp.gmail.com')
+    server.starttls()
+    server.login(user, senha)
+    server.send_message(msg)
+    server.quit()

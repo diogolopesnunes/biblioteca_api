@@ -1,9 +1,38 @@
-from flask import Flask, jsonify, request, send_file
-from flask_bcrypt import generate_password_hash, check_password_hash
+import os.path
+from flask import Flask, jsonify, request, send_file, Response
 from main import app, con
-from funcao import validar_senha, criptografar, checar_senha
+from funcao import validar_senha, criptografar, checar_senha, enviando_email
 from fpdf import FPDF
+import pygal
+import threading
 
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
+
+@app.route('/grafico')
+def grafico():
+    try:
+        cur = con.cursor()
+        cur.execute("""
+            select ano_publicado, count(*)
+            from livros
+            group by ano_publicado
+            order by ano_publicado
+        """)
+        resultado = cur.fetchall()
+
+        grafico = pygal.Bar()
+        grafico.title = "Quantidade de livros publicados por ano"
+
+        for linha in resultado:
+            grafico.add(str(linha[0]), linha[1])
+
+        return Response(grafico.render(), mimetype='image/svg+xml')
+
+    except Exception as e:
+        return jsonify({'message': f'Erro ao consultar banco de dados: {e}'}), 500
+    finally:
+        cur.close()
 
 @app.route('/listar_livro', methods=['GET'])
 def listar_livro():
@@ -33,11 +62,11 @@ def listar_livro():
 def criar_livro():
     try:
         cur = con.cursor()
-        dados = request.get_json()
 
-        titulo = dados.get('titulo')
-        autor = dados.get('autor')
-        ano_publicado = dados.get('ano_publicado')
+        titulo = request.form.get('titulo')
+        autor = request.form.get('autor')
+        ano_publicado = request.form.get('ano_publicado')
+        imagem = request.files.get('imagem')
 
         cur = con.cursor()
 
@@ -46,9 +75,21 @@ def criar_livro():
             return jsonify({'erro': 'Livro já cadastrado'}), 400
 
         cur.execute("""insert into livros (titulo, autor, ano_publicado)
-                        values (?, ?, ?)""", (titulo, autor, ano_publicado))
+                        values (?, ?, ?) RETURNING id_livro""", (titulo, autor, ano_publicado))
+
+        codigo_livro = cur.fetchone()[0]
 
         con.commit()
+
+        caminho_imagem = None
+
+        if imagem:
+            nome_imagem = f"livro_{codigo_livro}.jpg"
+            caminho_imagem_destino = os.path.join(app.config['UPLOAD_FOLDER'], "Livros")
+            os.makedirs(caminho_imagem_destino, exist_ok=True)
+            caminho_imagem = os.path.join(caminho_imagem_destino, nome_imagem)
+            imagem.save(caminho_imagem)
+
         return jsonify({'mensagem': 'Livro cadastrado com suuuuceeeeeeeeeeeesso',
                          'livro': {
                         'titulo': titulo,
@@ -122,7 +163,7 @@ def listar_usuario():
         usuarios = cur.fetchall()
         usuarios_lista = []
         for usuario in usuarios:
-            livros_lista.append({
+            usuarios_lista.append({
                 'id_usuario': usuario[0],
                 'usuario': usuario[1],
                 'senha': usuario[2]
@@ -290,3 +331,18 @@ def lista_usuarios_pdf():
         return jsonify({'message': f'Erro ao consultar banco de dados: {e}'}), 500
     finally:
         cur.close()
+
+
+@app.route("/enviar_email", methods=['POST'])
+def enviar_email():
+    dados = request.get_json(silent=True)
+    assunto = dados.get('assunto')
+    mensagem = dados.get('mensagem')
+    destinatario = dados.get('destinatario')
+
+    thread = threading.Thread(target=enviando_email,
+                              args=(destinatario, assunto, mensagem))
+
+    thread.start()
+
+    return jsonify({"mensagem": "Email enviado com suuuuceeeeeeeeeeeesso!"}), 200
