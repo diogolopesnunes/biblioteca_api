@@ -4,7 +4,7 @@ SECRET_KEY = 'nosssa_humildade_chave_secreta'
 DEBUG = True
 
 DB_HOST = 'localhost'
-DB_NAME = r'C:\Users\Aluno\Downloads\BANCOo\diogoProjeto\BANCO.FDB'
+DB_NAME = r'C:\Users\Aluno\Documents\biblioteca_api-main\BANCOo\BANCO.fdb'
 
 DB_USER = 'sysdba'
 DB_PASSWORD = 'sysdba'

@@ -1,10 +1,12 @@
 import os.path
 from flask import Flask, jsonify, request, send_file, Response
 from main import app, con
-from funcao import validar_senha, criptografar, checar_senha, enviando_email
+from funcao import validar_senha, criptografar, checar_senha, enviando_email, gerar_token, remover_bearer
 from fpdf import FPDF
 import pygal
 import threading
+import jwt
+
 
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
@@ -36,6 +38,21 @@ def grafico():
 
 @app.route('/listar_livro', methods=['GET'])
 def listar_livro():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"mensagem": "Token de autenticação necessário"})
+
+    token = remove_bearer(token)
+
+    try:
+        payload = jwt.decode(token, senha_secreta, algorithms=['HS256'])
+        id_usuario = payload['id_usuario']
+    except jwt.ExpiredSignatureError:
+        return jsonify({"mensagem": "Token Expirado"})
+    except jwt.InvalidTokenError:
+        return jsonify({"mensagem": "Token Inválido"})
+
+
     try:
         cur = con.cursor()
 
@@ -289,7 +306,8 @@ def login_usuario():
     cur.close()
 
     if checar_senha(senha, senha_banco):
-        return jsonify({'mensagem': 'Login realizado com suuuuceeeeeeeeeeeesso'})
+        token = gerar_token(usuario)
+        return jsonify({'mensagem': 'Login realizado com suuuuceeeeeeeeeeeesso', 'token': token}), 200
     else:
         return jsonify({'erro': 'Senha incorreta'}), 401
 
@@ -335,13 +353,12 @@ def lista_usuarios_pdf():
 
 @app.route("/enviar_email", methods=['POST'])
 def enviar_email():
-    dados = request.get_json(silent=True)
-    assunto = dados.get('assunto')
-    mensagem = dados.get('mensagem')
-    destinatario = dados.get('destinatario')
+    dados = request.json
+    assunto = dados.get('subject')
+    mensagem = dados.get('message')
+    destinatario = dados.get('to')
 
-    thread = threading.Thread(target=enviando_email,
-                              args=(destinatario, assunto, mensagem))
+    thread = threading.Thread(target=enviando_email, args=(destinatario, assunto, mensagem))
 
     thread.start()
 

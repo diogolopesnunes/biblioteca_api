@@ -2,6 +2,10 @@ from flask import Flask, jsonify, request
 from flask_bcrypt import generate_password_hash, check_password_hash
 import smtplib
 from email.mime.text import MIMEText
+import jwt
+import datetime
+
+from main import app
 
 
 def validar_senha(senha):
@@ -37,3 +41,23 @@ def enviando_email(destinatario, assunto, mensagem):
     server.login(user, senha)
     server.send_message(msg)
     server.quit()
+
+
+senha_secreta = app.config['SECRET_KEY']
+
+def gerar_token(id_usuario):
+    payload = {
+        'id_usuario': id_usuario,
+        'timestamp': datetime.datetime.utcnow().isoformat()
+    }
+
+    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+
+    return token
+
+
+def remover_bearer(token):
+    if token.startswith('Bearer '):
+        return token[len('Bearer '):]
+    else:
+        return token
