@@ -51,7 +51,7 @@ def gerar_token(id_usuario):
         'timestamp': datetime.datetime.utcnow().isoformat()
     }
 
-    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+    token = jwt.encode(payload, senha_secreta, algorithm='HS256')
 
     return token
 

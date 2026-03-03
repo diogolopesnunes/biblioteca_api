@@ -6,7 +6,9 @@ from fpdf import FPDF
 import pygal
 import threading
 import jwt
+import datetime
 
+senha_secreta = app.config['SECRET_KEY']
 
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
@@ -42,7 +44,7 @@ def listar_livro():
     if not token:
         return jsonify({"mensagem": "Token de autenticação necessário"})
 
-    token = remove_bearer(token)
+    token = remover_bearer(token)
 
     try:
         payload = jwt.decode(token, senha_secreta, algorithms=['HS256'])
